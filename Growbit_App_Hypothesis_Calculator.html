@@ -623,8 +623,8 @@ async function savePlanSnapshot(){
   const totalRow = [
     today, snapName, 'TOTAL', hypothesesStr, '', inPlan.length,
     fm(b.installs), p2(b.i2t), p2(b.t2p), p2(b.i2p), fm2(b.arppu6), fm2(b.arppu12),
-    sign(planRev6-b.rev6), sign(planRev12-b.rev12),
-    fm2(planArpu6-b.arpu6), fm2(planArpu12-b.arpu12),
+    fm(planRev6), fm(planRev12),
+    fm2(planArpu6), fm2(planArpu12),
     goalType==='abs'?'Absolute $':'% ARPU', tgt6, tgt12, pctOfTgt6, pctOfTgt12
   ];
 
