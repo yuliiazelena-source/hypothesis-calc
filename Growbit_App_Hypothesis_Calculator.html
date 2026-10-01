@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Growbit App — Hypothesis Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --accent:#16a34a; --accent-d:#15803d; --accent-l:#f0fdf4;
+    --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --bg:#f9fafb;
+    --card:#ffffff; --pos:#15803d; --neg:#dc2626; --amber:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:var(--bg);font-size:14px;line-height:1.5}
+  header{background:linear-gradient(135deg,#14532d,var(--accent));color:#fff;padding:20px 28px}
+  header .hdr-inner{display:flex;align-items:center;gap:14px}
+  header .icon{font-size:28px;line-height:1}
+  header h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.2px}
+  header p{margin:3px 0 0;opacity:.85;font-size:12.5px}
+  .platform-badge{display:inline-block;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;margin-top:6px;letter-spacing:.4px}
+  .wrap{max-width:1200px;margin:0 auto;padding:22px 24px 70px}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .card h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 14px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 3px}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;color:var(--ink);transition:border-color .15s}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(22,163,74,.12)}
+  .row{display:flex;gap:10px}
+  .row>div{flex:1}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tab{flex:1;text-align:center;padding:8px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:#fff;font-weight:600;font-size:13px;color:var(--muted);transition:all .15s}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn{display:inline-block;padding:9px 16px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:13px;transition:all .15s}
+  .btn:hover{background:var(--accent-d)}
+  .btn.ghost{background:#fff;color:var(--accent)}
+  .btn.ghost:hover{background:var(--accent-l)}
+  .btn.grey{border-color:var(--line);background:#fff;color:var(--muted)}
+  .btn.grey:hover{background:#f3f4f6}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  tr.section td{background:var(--accent-l);font-weight:700;color:var(--accent-d);text-transform:uppercase;font-size:11px;letter-spacing:.4px}
+  .pos{color:var(--pos);font-weight:600}
+  .neg{color:var(--neg);font-weight:600}
+  .muted{color:var(--muted)}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .kpi .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .kpi .val{font-size:22px;font-weight:700;margin-top:4px;color:var(--ink)}
+  .kpi .delta{font-size:12px;margin-top:3px}
+  .goalbar{height:10px;background:#e5e7eb;border-radius:6px;overflow:hidden;margin:6px 0;position:relative}
+  .goalbar .base{position:absolute;left:0;top:0;bottom:0;background:#bbf7d0}
+  .goalbar .scen{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.85}
+  .goalrow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:700px){.goalrow{grid-template-columns:1fr}}
+  .saved th,.saved td{font-size:12px;padding:6px 8px}
+  .toprow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .badge{display:inline-block;background:var(--accent-l);color:var(--accent-d);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;border:1px solid #bbf7d0}
+  .warn{background:#fffbeb;border:1px solid #fde68a;color:var(--amber);border-radius:8px;padding:8px 10px;font-size:12px;margin-top:10px;display:none}
+  .delbtn{cursor:pointer;color:var(--neg);font-weight:700;border:none;background:none;font-size:14px;padding:2px 4px;border-radius:4px}
+  .delbtn:hover{background:#fee2e2}
+  details{margin-top:10px}
+  summary{cursor:pointer;font-size:12px;color:var(--accent-d);font-weight:600;user-select:none}
+  .cfgline{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .cfgline input[type=checkbox]{width:auto}
+  .help{font-size:13px;line-height:1.6;margin-top:10px}
+  .help h3{font-size:12px;margin:12px 0 4px;color:var(--ink);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .help code{background:#f0fdf4;padding:1px 5px;border-radius:4px;font-size:12px;color:var(--accent-d);font-family:monospace}
+  .section-divider{border:none;border-top:1px solid var(--line);margin:16px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr-inner">
+    <div class="icon">🌱</div>
+    <div>
+      <h1>Growbit — Hypothesis Calculator</h1>
+      <p>Estimate revenue &amp; ARPU impact of a hypothesis before running the experiment</p>
+      <div class="platform-badge">📱 APP</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="grid">
+
+  <!-- LEFT -->
+  <div>
+    <div class="card">
+      <h2>Baseline inputs</h2>
+      <details>
+        <summary>How to use this calculator</summary>
+        <div class="help">
+          <h3>The idea</h3>
+          A hypothesis says "this lifts trial-start by 8%". Enter it, see what it does to revenue and ARPU, save it, and compare hypotheses to find the highest-leverage bets.
+          <h3>Model</h3>
+          Revenue = Installs × Conversion × ARPPU. Purchases split into two paths:
+          <code>Weekly purchases</code> = Install → Trial → Purchase.
+          <code>Annual purchases</code> = direct purchases without trial. Lifting a step rate grows the trial path; annual purchases are held constant.
+          <h3>Goal types</h3>
+          <code>% uplift ARPU</code> is recommended — ARPU is per-install, so seasonal traffic swings don't move the goal. <code>Absolute $</code> targets total revenue.
+          <h3>Saving &amp; exporting</h3>
+          Save several hypotheses, tick the ones in plan, and the bars show compounded progress toward the goal. Export to Excel/CSV to share.
+        </div>
+      </details>
+      <label>Installs (per period)</label>
+      <input id="installs" type="number" value="50000">
+      <div id="trialRow1" class="row">
+        <div><label id="lab_i2t">Install → Trial (%)</label><input id="i2t" type="number" value="12" step="0.1"></div>
+        <div><label id="lab_t2p">Trial → Purchase (%)</label><input id="t2p" type="number" value="35" step="0.1"></div>
+      </div>
+      <label style="display:flex;justify-content:space-between;align-items:center">
+        <span id="lab_i2p">Install → Purchase (%)</span>
+</label>
+      <input id="i2p" type="number" value="5" step="0.01">
+      <div class="row">
+        <div><label>ARPPU 6m (per payer)</label><input id="arppu6" type="number" value="18" step="0.5"></div>
+        <div><label>ARPPU 1y (per payer)</label><input id="arppu12" type="number" value="30" step="0.5"></div>
+      </div>
+      <div id="arppuwarn" class="warn">⚠ ARPPU 1y is below ARPPU 6m. 1y is cumulative, so it should be ≥ 6m.</div>
+      <hr class="section-divider">
+      <label style="margin-top:0">Goal type</label>
+      <div class="tabs" style="margin-bottom:4px">
+        <div class="tab active" id="gtPct" onclick="setGoalType('pct')">% uplift (ARPU)</div>
+        <div class="tab" id="gtAbs" onclick="setGoalType('abs')">Absolute $</div>
+      </div>
+      <div class="row">
+        <div><label id="goal6lab">Target uplift 6m (%)</label><input id="goal6" type="number" value="20"></div>
+        <div><label id="goal12lab">Target uplift 1y (%)</label><input id="goal12" type="number" value="40"></div>
+      </div>
+      <div class="hint" id="goalhint">% mode targets ARPU (per install) — traffic-independent. Switch to Absolute $ to target total revenue.</div>
+    </div>
+
+    <div class="card">
+      <h2>Hypothesis</h2>
+      <input id="hypname" placeholder="Hypothesis name (e.g. Shorten onboarding to 4 steps)" style="margin-bottom:8px">
+      <div class="tabs">
+        <div class="tab active" id="tabQuick" onclick="setMode('quick')">Quick uplift</div>
+        <div class="tab" id="tabFull" onclick="setMode('full')">Full scenario</div>
+      </div>
+      <div id="quickPane">
+        <label>Lever to move</label>
+        <select id="lever"></select>
+        <label>Uplift (%)</label>
+        <input id="uplift" type="number" value="10" step="0.5">
+        <div class="hint" id="quickHint"></div>
+      </div>
+      <div id="fullPane" style="display:none">
+        <div id="fullRowTrial" class="row">
+          <div><label id="lab_f_i2t">Install → Trial (%)</label><input id="f_i2t" type="number" step="0.1"></div>
+          <div><label id="lab_f_t2p">Trial → Purchase (%)</label><input id="f_t2p" type="number" step="0.1"></div>
+        </div>
+        <div class="row">
+          <div><label>Installs</label><input id="f_installs" type="number"></div>
+          <div><label id="lab_f_i2p">Install → Purchase (%)</label><input id="f_i2p" type="number" step="0.01"></div>
+        </div>
+        <div class="row">
+          <div><label>ARPPU 6m</label><input id="f_arppu6" type="number" step="0.5"></div>
+          <div><label>ARPPU 1y</label><input id="f_arppu12" type="number" step="0.5"></div>
+        </div>
+        <div class="hint">Edit any field freely for a custom scenario.</div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn" style="flex:1" onclick="saveScenario()">💾 Save scenario</button>
+        <button class="btn grey" onclick="resetFull()">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <div class="kpis">
+      <div class="kpi"><div class="lbl">Revenue 6m</div><div class="val" id="k_rev6"></div><div class="delta" id="k_rev6d"></div></div>
+      <div class="kpi"><div class="lbl">Revenue 1y</div><div class="val" id="k_rev12"></div><div class="delta" id="k_rev12d"></div></div>
+      <div class="kpi"><div class="lbl">ARPU 6m</div><div class="val" id="k_arpu6"></div><div class="delta" id="k_arpu6d"></div></div>
+      <div class="kpi"><div class="lbl">ARPU 1y</div><div class="val" id="k_arpu12"></div><div class="delta" id="k_arpu12d"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="toprow">
+        <h2 style="margin:0">Baseline vs hypothesis</h2>
+        <span class="badge" id="scenLabel">—</span>
+      </div>
+      <table id="cmp">
+        <thead><tr><th>Metric</th><th>Baseline</th><th>Hypothesis</th><th>Δ</th><th>Δ %</th></tr></thead>
+        <tbody id="cmpBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Distance to goal (this hypothesis)</h2>
+      <div class="goalrow">
+        <div>
+          <div class="toprow"><strong>6 months</strong><span class="muted" id="goal6lbl"></span></div>
+          <div class="goalbar"><div class="base" id="g6base"></div><div class="scen" id="g6scen"></div></div>
+          <div id="goal6txt" class="hint"></div>
+        </div>
+        <div>
+          <div class="toprow"><strong>1 year</strong><span class="muted" id="goal12lbl"></span></div>
+          <div class="goalbar"><div class="base" id="g12base"></div><div class="scen" id="g12scen"></div></div>
+          <div id="goal12txt" class="hint"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="toprow">
+        <h2 style="margin:0">Scenarios</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span id="syncStatus" class="hint" style="align-self:center;margin:0"></span>
+          <button class="btn ghost" onclick="savePlanSnapshot()" title="Save all ticked hypotheses as one record to Google Sheets">📸 Save plan snapshot</button>
+          <button class="btn grey" onclick="clearSaved()">Clear all</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:0">
+        <div id="stab-plan" onclick="switchSTab('plan')" style="padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px;border-bottom:2px solid var(--accent);color:var(--accent);margin-bottom:-1px">Plan</div>
+        <div id="stab-history" onclick="switchSTab('history')" style="padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px;border-bottom:2px solid transparent;color:var(--muted);margin-bottom:-1px">History</div>
+      </div>
+
+      <!-- PLAN TAB -->
+      <div id="stab-plan-content">
+        <div id="planRoll">
+          <div class="goalrow">
+            <div>
+              <div class="toprow"><strong>6-month plan vs goal</strong><span class="muted" id="plan6lbl"></span></div>
+              <div class="goalbar"><div class="base" id="p6base"></div><div class="scen" id="p6scen"></div></div>
+              <div id="plan6txt" class="hint"></div>
+            </div>
+            <div>
+              <div class="toprow"><strong>1-year plan vs goal</strong><span class="muted" id="plan12lbl"></span></div>
+              <div class="goalbar"><div class="base" id="p12base"></div><div class="scen" id="p12scen"></div></div>
+              <div id="plan12txt" class="hint"></div>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:8px">Ticked hypotheses compound on the baseline. "Progress" = share of baseline→goal gap the plan closes.</div>
+        </div>
+        <div style="overflow-x:auto;margin-top:14px">
+          <table class="saved">
+            <thead><tr>
+              <th>In plan</th><th>Name</th><th>Lever</th><th>Uplift</th><th>Δ Rev 6m</th><th>Δ Rev 1y</th><th></th>
+            </tr></thead>
+            <tbody id="savedBody"><tr><td colspan="7" class="muted">No saved scenarios yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- HISTORY TAB -->
+      <div id="stab-history-content" style="display:none">
+        <div style="overflow-x:auto">
+          <table class="saved">
+            <thead><tr>
+              <th>Date</th><th>Name</th><th>Lever</th><th>Uplift</th>
+              <th>Installs</th><th>i2t %</th><th>t2p %</th><th>i2p %</th><th>ARPPU 6m</th><th>ARPPU 1y</th>
+              <th>Rev 6m</th><th>Rev 1y</th><th>ARPU 6m</th><th>ARPU 1y</th>
+              <th>Δ Rev 6m</th><th>Δ Rev 1y</th><th>Goal type</th><th>Target 6m</th><th>Target 1y</th><th>% of target 6m</th><th>% of target 1y</th>
+            </tr></thead>
+            <tbody id="historyBody"><tr><td colspan="21" class="muted">No saved scenarios yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let mode = 'quick';
+let goalType = 'pct';
+const cfg = {product:'Growbit App', cur:'$', hasTrial:true, step:'Trial', bucketA:'Weekly purchases', bucketB:'Annual purchases'};
+const LS_KEY = 'growbit_app_hyp_v1';
+const SCRIPT_URL = 'https://script.google.com/a/macros/jatapp.com/s/AKfycbwJCwQfGY0Db4PsqqNq4lpTTcueDs3-xhWV_3i3HkqhO27_mkHomj7TsVKpc6UePx9X/exec';
+const SHEET_NAME = 'App Scenarios';
+
+function num(id){ return parseFloat($(id).value) || 0; }
+function cur(){ return cfg.cur || '$'; }
+function fmtMoney(v){ return cur() + Math.round(v).toLocaleString('en-US'); }
+function fmtMoney2(v){ return cur() + v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtInt(v){ return Math.round(v).toLocaleString('en-US'); }
+function fmtPct(v){ return (v*100).toFixed(2) + '%'; }
+function signPct(v){ return (v>=0?'+':'') + (v*100).toFixed(1) + '%'; }
+
+function L(){
+  return {
+    i2t: 'Install → '+cfg.step+' (%)',
+    t2p: cfg.step+' → Purchase (%)',
+    i2p: 'Install → Purchase (%)',
+    i2pShort: 'Install → Purchase',
+    stepPl: cfg.step + 's',
+    aBuy: cfg.bucketA,
+    bBuy: cfg.bucketB
+  };
+}
+
+function applyConfig(){
+  document.title = cfg.product + ' — Hypothesis Calculator';
+  buildLevers();
+  render();
+}
+
+function buildLevers(){
+  const l = L();
+  const keep = $('lever').value;
+  let o = '<option value="installs">Installs</option>';
+  o += '<option value="i2t">Install → '+cfg.step+'</option>';
+  o += '<option value="t2p">'+cfg.step+' → Purchase</option>';
+  o += '<option value="i2p">'+l.i2pShort+'</option>';
+  o += '<option value="arppu">ARPPU (6m &amp; 1y)</option>';
+  $('lever').innerHTML = o;
+  if([...$('lever').options].some(op=>op.value===keep)) $('lever').value = keep;
+}
+
+function baseState(){
+  return {
+    installs:num('installs'),
+    i2t:num('i2t')/100,
+    t2p:num('t2p')/100,
+    i2p:num('i2p')/100,
+    arppu6:num('arppu6'),
+    arppu12:num('arppu12')
+  };
+}
+
+function compute(s){
+  const total  = s.installs * s.i2p;
+  const weekly = cfg.hasTrial ? s.installs * s.i2t * s.t2p : 0;
+  const other  = total - weekly;
+  const trials = s.installs * s.i2t;
+  const rev6   = total * s.arppu6;
+  const rev12  = total * s.arppu12;
+  return {
+    installs:s.installs, i2t:s.i2t, t2p:s.t2p, i2p:s.i2p,
+    arppu6:s.arppu6, arppu12:s.arppu12,
+    trials, weekly, total, other,
+    weeklyProp: total? weekly/total : 0,
+    otherProp:  total? other/total : 0,
+    rev6, rev12,
+    arpu6: s.installs? rev6/s.installs : 0,
+    arpu12: s.installs? rev12/s.installs : 0
+  };
+}
+
+function scenState(){
+  const b = baseState();
+  const oRate = b.i2p - b.i2t*b.t2p;
+  if(mode === 'quick'){
+    const lever = $('lever').value;
+    const up = num('uplift')/100;
+    let s = {...b};
+    if(lever==='i2t'){ s.i2t=b.i2t*(1+up); s.i2p=s.i2t*s.t2p+oRate; }
+    else if(lever==='t2p'){ s.t2p=b.t2p*(1+up); s.i2p=s.i2t*s.t2p+oRate; }
+    else if(lever==='i2p'){ s.i2p=b.i2p*(1+up); }
+    else if(lever==='installs'){ s.installs=b.installs*(1+up); }
+    else if(lever==='arppu'){ s.arppu6=b.arppu6*(1+up); s.arppu12=b.arppu12*(1+up); }
+    return s;
+  } else {
+    return {
+      installs:num('f_installs'),
+      i2t:num('f_i2t')/100,
+      t2p:num('f_t2p')/100,
+      i2p:num('f_i2p')/100,
+      arppu6:num('f_arppu6'),
+      arppu12:num('f_arppu12')
+    };
+  }
+}
+function leverLabelFor(k){
+  const l=L();
+  return {installs:'Installs', i2t:'Install → '+cfg.step, t2p:cfg.step+' → Purchase', i2p:l.i2pShort, arppu:'ARPPU'}[k] || k;
+}
+function scenLabelText(){
+  if(mode==='quick') return leverLabelFor($('lever').value) + ' ' + signPct(num('uplift')/100);
+  return 'Custom scenario';
+}
+
+function deltaCell(base, scen, fmt){
+  const d = scen - base;
+  const cls = d>0?'pos':(d<0?'neg':'muted');
+  const dtxt = (d>=0?'+':'−') + fmt(Math.abs(d));
+  const ptxt = (base!==0)? signPct(d/base) : '—';
+  return {cls, dtxt, ptxt};
+}
+
+function render(){
+  const b = compute(baseState());
+  const s = compute(scenState());
+  const l = L();
+  $('scenLabel').textContent = scenLabelText();
+  $('arppuwarn').style.display = (s.arppu12 < s.arppu6 - 1e-9 || b.arppu12 < b.arppu6 - 1e-9) ? 'block' : 'none';
+
+  setKpi('k_rev6','k_rev6d', b.rev6, s.rev6, fmtMoney);
+  setKpi('k_rev12','k_rev12d', b.rev12, s.rev12, fmtMoney);
+  setKpi('k_arpu6','k_arpu6d', b.arpu6, s.arpu6, fmtMoney2);
+  setKpi('k_arpu12','k_arpu12d', b.arpu12, s.arpu12, fmtMoney2);
+
+  const funnel = cfg.hasTrial ? [
+    ['section','Funnel volumes'],
+    [l.stepPl, b.trials, s.trials, fmtInt],
+    [l.aBuy, b.weekly, s.weekly, fmtInt],
+    [l.bBuy, b.other, s.other, fmtInt],
+    ['Total purchases', b.total, s.total, fmtInt],
+    ['Weekly purchases, %', b.weeklyProp, s.weeklyProp, fmtPct],
+    ['Annual purchases, %', b.otherProp, s.otherProp, fmtPct],
+    ['i2p', b.i2p, s.i2p, fmtPct],
+  ] : [
+    ['section','Funnel volumes'],
+    ['Purchases (total)', b.total, s.total, fmtInt],
+    ['Conversion', b.i2p, s.i2p, fmtPct],
+  ];
+  const rows = funnel.concat([
+    ['section','Money'],
+    ['Revenue 6m', b.rev6, s.rev6, fmtMoney],
+    ['Revenue 1y', b.rev12, s.rev12, fmtMoney],
+    ['ARPPU 6m (per payer)', b.arppu6, s.arppu6, fmtMoney2],
+    ['ARPPU 1y (per payer)', b.arppu12, s.arppu12, fmtMoney2],
+    ['ARPU 6m (per install)', b.arpu6, s.arpu6, fmtMoney2],
+    ['ARPU 1y (per install)', b.arpu12, s.arpu12, fmtMoney2],
+  ]);
+  const tb = $('cmpBody'); tb.innerHTML='';
+  rows.forEach(r=>{
+    if(r[0]==='section'){ tb.innerHTML += `<tr class="section"><td colspan="5">${r[1]}</td></tr>`; return; }
+    const [lbl,bv,sv,fmt]=r;
+    const dc = deltaCell(bv,sv,fmt);
+    tb.innerHTML += `<tr><td>${lbl}</td><td>${fmt(bv)}</td><td>${fmt(sv)}</td><td class="${dc.cls}">${dc.dtxt}</td><td class="${dc.cls}">${dc.ptxt}</td></tr>`;
+  });
+
+  renderGoal('6', b, s);
+  renderGoal('12', b, s);
+  renderPlan();
+}
+
+function setKpi(valId, dId, base, scen, fmt){
+  $(valId).textContent = fmt(scen);
+  const d = scen-base;
+  const cls = d>0?'pos':(d<0?'neg':'muted');
+  const ptxt = base!==0? signPct(d/base):'—';
+  $(dId).className = 'delta '+cls;
+  $(dId).textContent = (d>=0?'+':'−')+fmt(Math.abs(d))+'  ('+ptxt+')';
+}
+
+function renderGoal(sfx, b, s){
+  const lbl=$('goal'+sfx+'lbl'), txt=$('goal'+sfx+'txt');
+  const baseEl=$('g'+sfx+'base'), scenEl=$('g'+sfx+'scen');
+  const goalInput=num('goal'+sfx);
+  const horizon = sfx==='6'?'6m':'1y';
+  if(goalType==='pct'){
+    const tgt=goalInput/100;
+    const baseArpu=sfx==='6'?b.arpu6:b.arpu12, scenArpu=sfx==='6'?s.arpu6:s.arpu12;
+    if(!tgt||tgt<=0){ lbl.textContent='no target set'; baseEl.style.width='0%'; scenEl.style.width='0%'; txt.textContent='Set a target uplift %.'; return; }
+    const up=baseArpu>0?(scenArpu/baseArpu-1):0, prog=up/tgt;
+    lbl.textContent='target +'+(tgt*100).toFixed(0)+'% ARPU';
+    baseEl.style.width='0%';
+    scenEl.style.width=Math.max(0,Math.min(100,prog*100))+'%';
+    txt.textContent=`This hypothesis lifts ARPU ${horizon} by ${signPct(up)} vs target +${(tgt*100).toFixed(0)}% → ${(prog*100).toFixed(0)}% of target.`;
+    return;
+  }
+  const goal=goalInput;
+  const base=sfx==='6'?b.rev6:b.rev12, scen=sfx==='6'?s.rev6:s.rev12;
+  if(!goal||goal<=0){ lbl.textContent='no goal set'; baseEl.style.width='0%'; scenEl.style.width='0%'; txt.textContent='Set a revenue goal.'; return; }
+  lbl.textContent='goal '+fmtMoney(goal);
+  baseEl.style.width=Math.min(100, base/goal*100)+'%';
+  scenEl.style.width=Math.min(100, scen/goal*100)+'%';
+  const baseGap=goal-base, scenGap=goal-scen, closed=baseGap>0?(scen-base)/baseGap:0;
+  let line=`Baseline ${(base/goal*100).toFixed(1)}% of goal → hypothesis ${(scen/goal*100).toFixed(1)}% of goal. `;
+  if(baseGap>0){ line+=`Remaining gap: ${fmtMoney(baseGap)} → ${fmtMoney(Math.max(0,scenGap))}; closes ${(closed*100).toFixed(1)}% of the gap.`; }
+  else { line+=`Baseline already at/above goal.`; }
+  txt.textContent=line;
+}
+
+function setGoalType(t){
+  goalType=t;
+  $('gtPct').classList.toggle('active', t==='pct');
+  $('gtAbs').classList.toggle('active', t==='abs');
+  const b=compute(baseState());
+  if(t==='pct'){
+    $('goal6lab').textContent='Target uplift 6m (%)';
+    $('goal12lab').textContent='Target uplift 1y (%)';
+    $('goal6').value=20; $('goal12').value=40;
+    $('goalhint').textContent="% mode targets ARPU (per install) — traffic-independent.";
+  } else {
+    $('goal6lab').textContent='Goal — revenue 6m';
+    $('goal12lab').textContent='Goal — revenue 1y';
+    $('goal6').value=Math.round(b.rev6*1.4); $('goal12').value=Math.round(b.rev12*1.4);
+    $('goalhint').textContent='Absolute $ targets total revenue — includes traffic volume.';
+  }
+  render();
+}
+
+function setMode(m){
+  mode=m;
+  $('tabQuick').classList.toggle('active', m==='quick');
+  $('tabFull').classList.toggle('active', m==='full');
+  $('quickPane').style.display = m==='quick'?'block':'none';
+  $('fullPane').style.display  = m==='full'?'block':'none';
+  if(m==='full') prefillFull();
+  render();
+}
+function prefillFull(){
+  $('f_installs').value=num('installs');
+  $('f_i2t').value=num('i2t');
+  $('f_t2p').value=num('t2p');
+  $('f_i2p').value=num('i2p');
+  $('f_arppu6').value=num('arppu6');
+  $('f_arppu12').value=num('arppu12');
+}
+function resetFull(){ prefillFull(); $('uplift').value=10; render(); }
+
+
+
+
+function onFunnelEdit(){ render(); }
+function onI2PEdit(){ render(); }
+
+function onFullFunnelEdit(){ render(); }
+
+function loadSaved(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||[]; }catch(e){ return []; } }
+function persist(arr){ try{ localStorage.setItem(LS_KEY, JSON.stringify(arr)); }catch(e){} }
+function sendToSheets(sheetName, headers, row){
+  const payload = encodeURIComponent(JSON.stringify({sheetName, headers, row}));
+  const url = SCRIPT_URL + '?payload=' + payload;
+  // Use image src trick — works from file:// without CORS issues
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = img.onerror = () => resolve(true);
+    img.src = url;
+    setTimeout(() => resolve(true), 3000);
+  });
+}
+
+
+
+function saveScenario(){
+  const b=compute(baseState()), s=compute(scenState());
+  const rec={
+    ts:new Date().toISOString().slice(0,16).replace('T',' '),
+    product:cfg.product, hasTrial:cfg.hasTrial,
+    name:$('hypname').value||'(unnamed)', inPlan:true,
+    mode, lever: mode==='quick'?$('lever').value:'custom',
+    leverLabel: mode==='quick'?leverLabelFor($('lever').value):'Custom',
+    uplift: mode==='quick'?num('uplift'):'', cur:cur(),
+    b_installs:b.installs,b_i2t:b.i2t,b_t2p:b.t2p,b_i2p:b.i2p,b_arppu6:b.arppu6,b_arppu12:b.arppu12,
+    b_arpu6:b.arpu6,b_arpu12:b.arpu12,b_rev6:b.rev6,b_rev12:b.rev12,
+    s_installs:s.installs,s_i2t:s.i2t,s_t2p:s.t2p,s_i2p:s.i2p,s_arppu6:s.arppu6,s_arppu12:s.arppu12,
+    s_rev6:s.rev6,s_rev12:s.rev12,s_arpu6:s.arpu6,s_arpu12:s.arpu12,
+    d_rev6:s.rev6-b.rev6, d_rev12:s.rev12-b.rev12,
+    goalType, goal6:num('goal6'), goal12:num('goal12')
+  };
+  const arr=loadSaved(); arr.push(rec); persist(arr); renderSaved();
+  const c2 = rec.cur || '$';
+  const p2b = v => typeof v==='number'?(v*100).toFixed(2)+'%':'';
+  const fmb = v => typeof v==='number'?Math.round(v):'';
+  const fm2b = v => typeof v==='number'?Math.round(v*100)/100:'';
+  const headers = ['Date','Name','In plan','Lever','Uplift %',
+    'Installs','i2t %','t2p %','i2p %','ARPPU 6m','ARPPU 1y',
+    'Rev 6m','Rev 1y','ARPU 6m','ARPU 1y',
+    'Δ Rev 6m','Δ Rev 1y','Goal type','Target 6m','Target 1y'];
+  const row = [
+    rec.ts, rec.name, (rec.inPlan!==false)?'yes':'no',
+    rec.leverLabel||rec.lever, rec.uplift,
+    fmb(rec.b_installs), p2b(rec.b_i2t), p2b(rec.b_t2p), p2b(rec.b_i2p),
+    fm2b(rec.b_arppu6), fm2b(rec.b_arppu12),
+    fmb(rec.s_rev6), fmb(rec.s_rev12), fm2b(rec.s_arpu6), fm2b(rec.s_arpu12),
+    fmb(rec.d_rev6), fmb(rec.d_rev12),
+    rec.goalType==='abs'?'Absolute $':'% ARPU', rec.goal6, rec.goal12
+  ];
+  sendToSheets(SHEET_NAME, headers, row);
+}
+function delSaved(i){ const a=loadSaved(); a.splice(i,1); persist(a); renderSaved(); }
+function clearSaved(){ if(confirm('Delete all saved scenarios?')){ persist([]); renderSaved(); } }
+function togglePlan(i){ const a=loadSaved(); if(a[i]){ a[i].inPlan=(a[i].inPlan===false); persist(a); renderSaved(); } }
+
+async function savePlanSnapshot(){
+  if(savePlanSnapshot._running){ return; }
+  savePlanSnapshot._running = true;
+
+  const arr = loadSaved();
+  const inPlan = arr.filter(r => r.inPlan !== false);
+  if(!inPlan.length){ alert('No hypotheses ticked "In plan".'); savePlanSnapshot._running=false; return; }
+  const b = compute(baseState());
+  const snapName = prompt('Snapshot name (optional):', '') || ('Plan - ' + new Date().toISOString().slice(0,10));
+  if(snapName === null){ savePlanSnapshot._running=false; return; }
+
+  let f6=1, f12=1;
+  inPlan.forEach(r=>{
+    if(r.b_arpu6>0) f6 *= r.s_arpu6/r.b_arpu6;
+    if(r.b_arpu12>0) f12 *= r.s_arpu12/r.b_arpu12;
+  });
+  const planArpu6 = b.arpu6*f6, planArpu12 = b.arpu12*f12;
+  const planRev6 = b.rev6*f6, planRev12 = b.rev12*f12;
+  const tgt6 = num('goal6'), tgt12 = num('goal12');
+  const today = new Date().toISOString().slice(0,16).replace('T',' ');
+  const snapSheetName = 'Plan - ' + new Date().toISOString().slice(0,10);
+
+  let pctOfTgt6='—', pctOfTgt12='—';
+  if(goalType==='pct'){
+    if(tgt6) pctOfTgt6 = ((f6-1)/(tgt6/100)*100).toFixed(0)+'%';
+    if(tgt12) pctOfTgt12 = ((f12-1)/(tgt12/100)*100).toFixed(0)+'%';
+  } else {
+    if(tgt6 && b.rev6) pctOfTgt6 = ((planRev6-b.rev6)/(tgt6-b.rev6)*100).toFixed(0)+'%';
+    if(tgt12 && b.rev12) pctOfTgt12 = ((planRev12-b.rev12)/(tgt12-b.rev12)*100).toFixed(0)+'%';
+  }
+
+  const p2 = v => typeof v==='number'?(v*100).toFixed(2)+'%':'';
+  const fm = v => typeof v==='number'?Math.round(v):'';
+  const fm2 = v => typeof v==='number'?Math.round(v*100)/100:'';
+  const sign = v => typeof v==='number'?(v>=0?'+':'')+Math.round(v):'';
+
+  const headers = ['Date','Snapshot','Type','Hypothesis','Lever','Uplift %',
+    'Installs','i2t %','t2p %','i2p %','ARPPU 6m','ARPPU 1y',
+    'Rev 6m','Rev 1y','ARPU 6m','ARPU 1y',
+    'Goal type','Target 6m','Target 1y','% of target 6m','% of target 1y'];
+
+  const hypothesesStr = inPlan.map(r=>r.name).join(', ');
+
+  // TOTAL row
+  const totalRow = [
+    today, snapName, 'TOTAL', hypothesesStr, '', inPlan.length,
+    fm(b.installs), p2(b.i2t), p2(b.t2p), p2(b.i2p), fm2(b.arppu6), fm2(b.arppu12),
+    sign(planRev6-b.rev6), sign(planRev12-b.rev12),
+    fm2(planArpu6-b.arpu6), fm2(planArpu12-b.arpu12),
+    goalType==='abs'?'Absolute $':'% ARPU', tgt6, tgt12, pctOfTgt6, pctOfTgt12
+  ];
+
+  // Individual hypothesis rows — each with baseline
+  const hypRows = inPlan.map(r => {
+    let hPct6='—', hPct12='—';
+    if(goalType==='pct'){
+      if(tgt6 && r.b_arpu6>0) hPct6 = ((r.s_arpu6/r.b_arpu6-1)/(tgt6/100)*100).toFixed(0)+'%';
+      if(tgt12 && r.b_arpu12>0) hPct12 = ((r.s_arpu12/r.b_arpu12-1)/(tgt12/100)*100).toFixed(0)+'%';
+    } else {
+      if(tgt6 && r.b_rev6) hPct6 = ((r.d_rev6)/(tgt6-r.b_rev6)*100).toFixed(0)+'%';
+      if(tgt12 && r.b_rev12) hPct12 = ((r.d_rev12)/(tgt12-r.b_rev12)*100).toFixed(0)+'%';
+    }
+    return [
+      today, snapName, 'hypothesis', r.name, r.leverLabel||r.lever, r.uplift,
+      fm(r.b_installs), p2(r.b_i2t), p2(r.b_t2p), p2(r.b_i2p), fm2(r.b_arppu6), fm2(r.b_arppu12),
+      fm(r.s_rev6), fm(r.s_rev12),
+      fm2(r.s_arpu6), fm2(r.s_arpu12),
+      '', '', '', hPct6, hPct12
+    ];
+  });
+
+  try {
+    const rows = [totalRow, ...hypRows];
+    for(const row of rows){
+      await sendToSheets(snapSheetName, headers, row);
+      await new Promise(res => setTimeout(res, 400));
+    }
+    alert('✅ Plan snapshot saved to Google Sheets!');
+  } catch(e) {
+    alert('❌ Could not save: ' + e.message);
+  } finally {
+    savePlanSnapshot._running = false;
+  }
+}
+savePlanSnapshot._running = false;
+
+
+
+function calcPctOfTarget(r, horizon){
+  if(!r.goalType || r.goalType==='pct'){
+    const tgt = horizon==='6m' ? r.goal6 : r.goal12;
+    const bArpu = horizon==='6m' ? r.b_arpu6 : r.b_arpu12;
+    const sArpu = horizon==='6m' ? r.s_arpu6 : r.s_arpu12;
+    if(!tgt||!bArpu) return '—';
+    const achieved=(sArpu/bArpu-1)/(tgt/100);
+    return (achieved*100).toFixed(0)+'%';
+  } else {
+    const tgt = horizon==='6m' ? r.goal6 : r.goal12;
+    const base = horizon==='6m' ? r.b_rev6 : r.b_rev12;
+    const scen = horizon==='6m' ? r.s_rev6 : r.s_rev12;
+    if(!tgt||!base) return '—';
+    const gap=tgt-base; if(gap<=0) return '100%';
+    return ((scen-base)/gap*100).toFixed(0)+'%';
+  }
+}
+
+function switchSTab(tab){
+  $('stab-plan-content').style.display = tab==='plan'?'block':'none';
+  $('stab-history-content').style.display = tab==='history'?'block':'none';
+  $('stab-plan').style.borderBottomColor = tab==='plan'?'var(--accent)':'transparent';
+  $('stab-plan').style.color = tab==='plan'?'var(--accent)':'var(--muted)';
+  $('stab-history').style.borderBottomColor = tab==='history'?'var(--accent)':'transparent';
+  $('stab-history').style.color = tab==='history'?'var(--accent)':'var(--muted)';
+}
+
+function renderSaved(){
+  const arr=loadSaved(); const tb=$('savedBody'); const hb=$('historyBody');
+  if(!arr.length){
+    tb.innerHTML='<tr><td colspan="7" class="muted">No saved scenarios yet.</td></tr>';
+    hb.innerHTML='<tr><td colspan="21" class="muted">No saved scenarios yet.</td></tr>';
+    renderPlan(); return;
+  }
+  tb.innerHTML=''; hb.innerHTML='';
+  arr.forEach((r,i)=>{
+    const c=r.cur||'$';
+    const up = r.uplift!==''? (r.uplift+'%') : '—';
+    const checked = (r.inPlan!==false) ? 'checked' : '';
+    // Plan tab row
+    tb.innerHTML += `<tr>
+      <td style="text-align:center"><input type="checkbox" ${checked} style="width:auto" onchange="togglePlan(${i})"></td>
+      <td title="${r.ts}">${r.name}</td>
+      <td>${r.leverLabel||r.lever}</td><td>${up}</td>
+      <td class="${r.d_rev6>=0?'pos':'neg'}">${r.d_rev6>=0?'+':'−'}${c}${Math.abs(Math.round(r.d_rev6)).toLocaleString('en-US')}</td>
+      <td class="${r.d_rev12>=0?'pos':'neg'}">${r.d_rev12>=0?'+':'−'}${c}${Math.abs(Math.round(r.d_rev12)).toLocaleString('en-US')}</td>
+      <td><button class="delbtn" onclick="delSaved(${i})">✕</button></td>
+    </tr>`;
+    // History tab row
+    const p2=v=>typeof v==='number'?(v*100).toFixed(2)+'%':'—';
+    const fm=v=>typeof v==='number'?c+Math.round(v).toLocaleString('en-US'):'—';
+    const fm2=v=>typeof v==='number'?c+v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+    const dc6=r.d_rev6>=0?'pos':'neg', dc12=r.d_rev12>=0?'pos':'neg';
+    hb.innerHTML += `<tr>
+      <td class="muted" style="font-size:11px">${r.ts}</td>
+      <td>${r.name}</td>
+      <td>${r.leverLabel||r.lever}</td><td>${up}</td>
+      <td>${r.b_installs!=null?Math.round(r.b_installs).toLocaleString('en-US'):'—'}</td>
+      <td>${r.b_i2t!=null?p2(r.b_i2t):'—'}</td>
+      <td>${r.b_t2p!=null?p2(r.b_t2p):'—'}</td>
+      <td>${r.b_i2p!=null?p2(r.b_i2p):'—'}</td>
+      <td>${r.b_arppu6!=null?fm2(r.b_arppu6):'—'}</td>
+      <td>${r.b_arppu12!=null?fm2(r.b_arppu12):'—'}</td>
+      <td>${fm(r.s_rev6)}</td><td>${fm(r.s_rev12)}</td>
+      <td>${fm2(r.s_arpu6)}</td><td>${fm2(r.s_arpu12)}</td>
+      <td class="${dc6}">${r.d_rev6>=0?'+':'−'}${c}${Math.abs(Math.round(r.d_rev6)).toLocaleString('en-US')}</td>
+      <td class="${dc12}">${r.d_rev12>=0?'+':'−'}${c}${Math.abs(Math.round(r.d_rev12)).toLocaleString('en-US')}</td>
+    </tr>`;
+  });
+  renderPlan();
+}
+
+function renderPlan(){
+  const arr=loadSaved(); const b=compute(baseState());
+  if(goalType==='pct'){
+    let g6=1,g12=1,n=0;
+    arr.forEach(r=>{ if(r.inPlan===false) return; n++;
+      if(r.b_arpu6>0) g6*=r.s_arpu6/r.b_arpu6;
+      if(r.b_arpu12>0) g12*=r.s_arpu12/r.b_arpu12; });
+    drawPlanPct('6', num('goal6')/100, g6, n);
+    drawPlanPct('12', num('goal12')/100, g12, n);
+  } else {
+    let f6=1,f12=1,n=0;
+    arr.forEach(r=>{ if(r.inPlan===false) return; n++;
+      if(r.b_rev6>0) f6*=r.s_rev6/r.b_rev6;
+      if(r.b_rev12>0) f12*=r.s_rev12/r.b_rev12; });
+    drawPlanAbs('6', num('goal6'), b.rev6, b.rev6*f6, n);
+    drawPlanAbs('12', num('goal12'), b.rev12, b.rev12*f12, n);
+  }
+}
+function drawPlanPct(sfx, tgt, factor, n){
+  const lbl=$('plan'+sfx+'lbl'), txt=$('plan'+sfx+'txt'), be=$('p'+sfx+'base'), se=$('p'+sfx+'scen');
+  const horizon=sfx==='6'?'6m':'1y';
+  if(!tgt||tgt<=0){ lbl.textContent='no target set'; be.style.width='0%'; se.style.width='0%'; txt.textContent='Set a target.'; return; }
+  const achieved=factor-1, prog=achieved/tgt;
+  lbl.textContent=n+(n===1?' hypothesis':' hypotheses')+' · target +'+(tgt*100).toFixed(0)+'% ARPU';
+  be.style.width='0%'; se.style.width=Math.max(0,Math.min(100,prog*100))+'%';
+  let t=`Plan lifts ARPU ${horizon} by ${signPct(achieved)} of target +${(tgt*100).toFixed(0)}% → ${(prog*100).toFixed(0)}% of target. `;
+  if(achieved < tgt-1e-9 && factor>0){ const need=((1+tgt)/factor-1)*100; t+=`A further hypothesis needs ≈ +${need.toFixed(1)}% ARPU to hit target.`; }
+  else if(achieved>=tgt-1e-9){ t+=`🎯 Plan meets the target.`; }
+  txt.textContent=t;
+}
+function drawPlanAbs(sfx, goal, base, cum, n){
+  const lbl=$('plan'+sfx+'lbl'), txt=$('plan'+sfx+'txt'), be=$('p'+sfx+'base'), se=$('p'+sfx+'scen');
+  if(!goal||goal<=0){ lbl.textContent='no goal set'; be.style.width='0%'; se.style.width='0%'; txt.textContent='Set a goal.'; return; }
+  lbl.textContent=n+(n===1?' hypothesis':' hypotheses')+' in plan · goal '+fmtMoney(goal);
+  be.style.width=Math.min(100, base/goal*100)+'%'; se.style.width=Math.min(100, cum/goal*100)+'%';
+  const gap=goal-base, closed=gap>0?(cum-base)/gap:1;
+  let t=`Baseline ${fmtMoney(base)} (${(base/goal*100).toFixed(0)}% of goal) → plan ${fmtMoney(cum)} (${(cum/goal*100).toFixed(0)}% of goal). `;
+  if(gap>0){ t+=`Progress: ${(closed*100).toFixed(0)}% of gap closed. `;
+    if(cum<goal && cum>0){ const need=(goal/cum-1)*100; t+=`Still ${fmtMoney(goal-cum)} short — needs ≈ +${need.toFixed(1)}% revenue.`; }
+    else if(cum>=goal){ t+=`🎯 Plan reaches the goal.`; }
+  } else { t+=`Baseline already at/above goal.`; }
+  txt.textContent=t;
+}
+
+function exportRows(){
+  const arr=loadSaved();
+  const c=(arr[0]&&arr[0].cur)||'$';
+  const head=['Product','Name','In plan','Lever','Uplift (%)','Installs',
+    'Install→trial (%)','Trial→purchase (%)','Total conversion (%)','ARPPU 6m ('+c+')','ARPPU 1y ('+c+')',
+    'ARPU uplift 6m (%)','ARPU uplift 1y (%)',
+    'Revenue 6m ('+c+')','Revenue 1y ('+c+')','Δ Revenue 6m ('+c+')','Δ Revenue 1y ('+c+')',
+    'Goal type','Target/Goal 6m','Target/Goal 1y','Saved at'];
+  const rows=arr.map(r=>{
+    const upA6=r.b_arpu6>0?r.s_arpu6/r.b_arpu6-1:0, upA12=r.b_arpu12>0?r.s_arpu12/r.b_arpu12-1:0;
+    const hasT = r.hasTrial!==false;
+    const gt=r.goalType==='abs'?'Absolute $':(r.goalType==='pct'?'% ARPU':'');
+    return [r.product||'', r.name, (r.inPlan!==false)?'yes':'no', r.leverLabel||r.lever, r.uplift,
+      round(r.s_installs), hasT?pct2(r.s_i2t):'', hasT?pct2(r.s_t2p):'', pct2(r.s_i2p), r2(r.s_arppu6), r2(r.s_arppu12),
+      pct2(upA6), pct2(upA12),
+      round(r.s_rev6), round(r.s_rev12), round(r.d_rev6), round(r.d_rev12),
+      gt, round(r.goal6), round(r.goal12), r.ts];
+  });
+  return {head,rows};
+}
+function round(v){ return typeof v==='number'?Math.round(v):v; }
+function r2(v){ return typeof v==='number'?Math.round(v*100)/100:v; }
+function pct2(v){ return typeof v==='number'?Math.round(v*10000)/100:v; }
+function fnameBase(){ return (cfg.product?cfg.product.replace(/[^a-z0-9]+/gi,'_').replace(/^_|_$/g,''):'growbit_app'); }
+function stamp(){ return new Date().toISOString().slice(0,10); }
+
+function exportXLSX(){
+  const arr=loadSaved(); if(!arr.length){ alert('Nothing to export yet.'); return; }
+  if(typeof XLSX==='undefined'){ alert('Excel library not loaded. Use CSV export instead.'); return; }
+  const {head,rows}=exportRows();
+  const ws=XLSX.utils.aoa_to_sheet([head,...rows]);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Hypotheses');
+  XLSX.writeFile(wb, fnameBase()+'_hypotheses_'+stamp()+'.xlsx');
+}
+function exportCSV(){
+  const arr=loadSaved(); if(!arr.length){ alert('Nothing to export yet.'); return; }
+  const {head,rows}=exportRows();
+  const esc=v=>{ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const csv=[head,...rows].map(r=>r.map(esc).join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fnameBase()+'_hypotheses_'+stamp()+'.csv'; a.click();
+}
+
+const skip=['i2t','t2p','i2p','f_i2t','f_t2p'];
+document.querySelectorAll('input,select').forEach(el=>{ if(skip.includes(el.id)) return; el.addEventListener('input', render); });
+$('i2t').addEventListener('input', onFunnelEdit);
+$('t2p').addEventListener('input', onFunnelEdit);
+$('i2p').addEventListener('input', onI2PEdit);
+
+$('f_i2t').addEventListener('input', onFullFunnelEdit);
+$('f_t2p').addEventListener('input', onFullFunnelEdit);
+
+
+prefillFull();
+applyConfig();
+renderSaved();
+</script>
+</body>
+</html>
