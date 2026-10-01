@@ -533,7 +533,7 @@ async function savePlanSnapshot(){
   const inPlan = arr.filter(r => r.inPlan !== false);
   if(!inPlan.length){ alert('No hypotheses ticked "In plan".'); savePlanSnapshot._running=false; return; }
   const b = compute(baseState());
-  const snapName = prompt('Snapshot name (optional):', '') || ('Plan - ' + new Date().toISOString().slice(0,10));
+  const snapName = prompt('Snapshot name (optional):', '') || ('Web - ' + new Date().toISOString().slice(0,10));
   if(snapName === null){ savePlanSnapshot._running=false; return; }
   let f6=1, f12=1;
   inPlan.forEach(r=>{
@@ -544,7 +544,7 @@ async function savePlanSnapshot(){
   const planRev6=b.rev6*f6, planRev12=b.rev12*f12;
   const tgt6=num('goal6'), tgt12=num('goal12');
   const today=new Date().toISOString().slice(0,16).replace('T',' ');
-  const snapSheetName='Plan - '+new Date().toISOString().slice(0,10);
+  const snapSheetName='Web - '+new Date().toISOString().slice(0,10);
   let pctOfTgt6='—', pctOfTgt12='—';
   if(goalType==='pct'){
     if(tgt6) pctOfTgt6=((f6-1)/(tgt6/100)*100).toFixed(0)+'%';
