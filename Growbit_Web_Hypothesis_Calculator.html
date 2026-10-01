@@ -505,6 +505,113 @@ function delSaved(i){ const a = loadSaved(); a.splice(i,1); persist(a); renderSa
 function clearSaved(){ if(confirm('Delete all saved scenarios?')){ persist([]); renderSaved(); } }
 function togglePlan(i){ const a = loadSaved(); if(a[i]){ a[i].inPlan = (a[i].inPlan === false); persist(a); renderSaved(); } }
 
+
+function switchSTab(tab){
+  $('stab-plan-content').style.display = tab==='plan'?'block':'none';
+  $('stab-history-content').style.display = tab==='history'?'block':'none';
+  $('stab-plan').style.borderBottomColor = tab==='plan'?'var(--accent)':'transparent';
+  $('stab-plan').style.color = tab==='plan'?'var(--accent)':'var(--muted)';
+  $('stab-history').style.borderBottomColor = tab==='history'?'var(--accent)':'transparent';
+  $('stab-history').style.color = tab==='history'?'var(--accent)':'var(--muted)';
+}
+
+function sendToSheets(sheetName, headers, row){
+  const payload = encodeURIComponent(JSON.stringify({sheetName, headers, row}));
+  const url = 'https://script.google.com/a/macros/jatapp.com/s/AKfycbwJCwQfGY0Db4PsqqNq4lpTTcueDs3-xhWV_3i3HkqhO27_mkHomj7TsVKpc6UePx9X/exec?payload=' + payload;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = img.onerror = () => resolve(true);
+    img.src = url;
+    setTimeout(() => resolve(true), 3000);
+  });
+}
+
+async function savePlanSnapshot(){
+  if(savePlanSnapshot._running){ return; }
+  savePlanSnapshot._running = true;
+  const arr = loadSaved();
+  const inPlan = arr.filter(r => r.inPlan !== false);
+  if(!inPlan.length){ alert('No hypotheses ticked "In plan".'); savePlanSnapshot._running=false; return; }
+  const b = compute(baseState());
+  const snapName = prompt('Snapshot name (optional):', '') || ('Plan - ' + new Date().toISOString().slice(0,10));
+  if(snapName === null){ savePlanSnapshot._running=false; return; }
+  let f6=1, f12=1;
+  inPlan.forEach(r=>{
+    if(r.b_arpu6>0) f6 *= r.s_arpu6/r.b_arpu6;
+    if(r.b_arpu12>0) f12 *= r.s_arpu12/r.b_arpu12;
+  });
+  const planArpu6=b.arpu6*f6, planArpu12=b.arpu12*f12;
+  const planRev6=b.rev6*f6, planRev12=b.rev12*f12;
+  const tgt6=num('goal6'), tgt12=num('goal12');
+  const today=new Date().toISOString().slice(0,16).replace('T',' ');
+  const snapSheetName='Plan - '+new Date().toISOString().slice(0,10);
+  let pctOfTgt6='—', pctOfTgt12='—';
+  if(goalType==='pct'){
+    if(tgt6) pctOfTgt6=((f6-1)/(tgt6/100)*100).toFixed(0)+'%';
+    if(tgt12) pctOfTgt12=((f12-1)/(tgt12/100)*100).toFixed(0)+'%';
+  } else {
+    if(tgt6&&b.rev6) pctOfTgt6=((planRev6-b.rev6)/(tgt6-b.rev6)*100).toFixed(0)+'%';
+    if(tgt12&&b.rev12) pctOfTgt12=((planRev12-b.rev12)/(tgt12-b.rev12)*100).toFixed(0)+'%';
+  }
+  const p2=v=>typeof v==='number'?(v*100).toFixed(2)+'%':'';
+  const fm=v=>typeof v==='number'?Math.round(v):'';
+  const fm2=v=>typeof v==='number'?Math.round(v*100)/100:'';
+  const headers=['Date','Snapshot','Type','Hypothesis','Lever','Uplift %',
+    'Starts','start→Paywall %','Paywall→Purchase %','i2p %','ARPPU 6m','ARPPU 1y',
+    'Rev 6m','Rev 1y','ARPU 6m','ARPU 1y',
+    'Goal type','Target 6m','Target 1y','% of target 6m','% of target 1y'];
+  const hypothesesStr=inPlan.map(r=>r.name).join(', ');
+  const totalRow=[today,snapName,'TOTAL',hypothesesStr,'',inPlan.length,
+    fm(b.installs),p2(b.i2t),p2(b.t2p),p2(b.i2p),fm2(b.arppu6),fm2(b.arppu12),
+    fm(planRev6),fm(planRev12),fm2(planArpu6),fm2(planArpu12),
+    goalType==='abs'?'Absolute $':'% ARPU',tgt6,tgt12,pctOfTgt6,pctOfTgt12];
+  const hypRows=inPlan.map(r=>{
+    let hPct6='—',hPct12='—';
+    if(goalType==='pct'){
+      if(tgt6&&r.b_arpu6>0) hPct6=((r.s_arpu6/r.b_arpu6-1)/(tgt6/100)*100).toFixed(0)+'%';
+      if(tgt12&&r.b_arpu12>0) hPct12=((r.s_arpu12/r.b_arpu12-1)/(tgt12/100)*100).toFixed(0)+'%';
+    } else {
+      if(tgt6&&r.b_rev6) hPct6=((r.d_rev6)/(tgt6-r.b_rev6)*100).toFixed(0)+'%';
+      if(tgt12&&r.b_rev12) hPct12=((r.d_rev12)/(tgt12-r.b_rev12)*100).toFixed(0)+'%';
+    }
+    return [today,snapName,'hypothesis',r.name,r.leverLabel||r.lever,r.uplift,
+      fm(r.b_installs),p2(r.b_i2t),p2(r.b_t2p),p2(r.b_i2p),fm2(r.b_arppu6),fm2(r.b_arppu12),
+      fm(r.s_rev6),fm(r.s_rev12),fm2(r.s_arpu6),fm2(r.s_arpu12),
+      '','','',hPct6,hPct12];
+  });
+  try {
+    const rows=[totalRow,...hypRows];
+    for(const row of rows){
+      await sendToSheets(snapSheetName,headers,row);
+      await new Promise(res=>setTimeout(res,400));
+    }
+    alert('✅ Plan snapshot saved to Google Sheets!');
+  } catch(e) {
+    alert('❌ Could not save: '+e.message);
+  } finally {
+    savePlanSnapshot._running=false;
+  }
+}
+savePlanSnapshot._running=false;
+
+function calcPctOfTarget(r, horizon){
+  if(!r.goalType || r.goalType==='pct'){
+    const tgt = horizon==='6m' ? r.goal6 : r.goal12;
+    const bArpu = horizon==='6m' ? r.b_arpu6 : r.b_arpu12;
+    const sArpu = horizon==='6m' ? r.s_arpu6 : r.s_arpu12;
+    if(!tgt||!bArpu) return '—';
+    const achieved=(sArpu/bArpu-1)/(tgt/100);
+    return (achieved*100).toFixed(0)+'%';
+  } else {
+    const tgt = horizon==='6m' ? r.goal6 : r.goal12;
+    const base = horizon==='6m' ? r.b_rev6 : r.b_rev12;
+    const scen = horizon==='6m' ? r.s_rev6 : r.s_rev12;
+    if(!tgt||!base) return '—';
+    const gap=tgt-base; if(gap<=0) return '100%';
+    return ((scen-base)/gap*100).toFixed(0)+'%';
+  }
+}
+
 function renderSaved(){
   const arr = loadSaved(); const tb = $('savedBody');
   if(!arr.length){ tb.innerHTML = '<tr><td colspan="7" class="muted">No saved scenarios yet.</td></tr>'; renderPlan(); return; }
